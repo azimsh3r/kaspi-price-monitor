@@ -25,16 +25,18 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.modelmapper:modelmapper:3.2.1")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.4.1")
+    implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.18.0")
     implementation("com.fasterxml.jackson.core:jackson-core:2.18.0")
-    implementation("org.apache.httpcomponents.client5:httpclient5:5.1")
     compileOnly("org.projectlombok:lombok")
     runtimeOnly("org.postgresql:postgresql")
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("io.projectreactor:reactor-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

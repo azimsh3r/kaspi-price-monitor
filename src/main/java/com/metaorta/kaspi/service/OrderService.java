@@ -1,11 +1,13 @@
 package com.metaorta.kaspi.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.metaorta.kaspi.dto.OrderDTO;
 import com.metaorta.kaspi.dto.OrderProductDTO;
-import com.metaorta.kaspi.dto.OrderStatsDTO;
+import com.metaorta.kaspi.model.OrderAmountStats;
 import com.metaorta.kaspi.enums.OrderStatus;
+import com.metaorta.kaspi.model.OrderRevenueStats;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
@@ -18,8 +20,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
+//TODO: add token retrieval logic to the database
 @Service
 public class OrderService {
     private final CloseableHttpClient httpClient;
@@ -29,56 +31,75 @@ public class OrderService {
         this.httpClient = httpClient;
     }
 
-    public List<OrderDTO> getOrderList(String startDate, String endDate, Integer merchantId) throws ParseException {
+    //TODO: Find out the paging strategy
+    public List<OrderDTO> getOrders(String startDate, String endDate, Integer merchantId) throws ParseException {
         //TODO: fetch token from postgresql
-        String token = "17LXGV0OswBHvVIsxheI+PXOfIzGjJ2n8+rncYOE62I=";
+        String token = "uLFl1Mhpq1cDDiMltbmYZy9OJInG1UUYbb851osILCc=";
+
+        List<OrderDTO> orders = new ArrayList<>();
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd-M-yyyy");
 
         Date sDate = sdf.parse(startDate);
         Date eDate = sdf.parse(endDate);
 
-        String url = "https://kaspi.kz/shop/api/v2/orders" +
-                "?page[number]=0&page[size]=100" +
-                "&filter[orders][state]=NEW" +
-                "&filter[orders][creationDate][$ge]=" + sDate.getTime() +
-                "&filter[orders][creationDate][$le]=" + eDate.getTime();
+        int pageCount = 0;
+        int counter = 0;
 
-        HttpGet request = new HttpGet(url);
-        request.addHeader("X-Auth-Token", token);
-        request.addHeader("Accept", "*/*");
-        request.addHeader("Content-Type", "application/vnd.api+json");
-        request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+        do {
+            String url = "https://kaspi.kz/shop/api/v2/orders" +
+                    "?page[number]=" + (pageCount - 1) +
+                    "&page[size]=100" +
+                    "&filter[orders][state]=ARCHIVE" +
+                    "&filter[orders][creationDate][$ge]=" + sDate.getTime() +
+                    "&filter[orders][creationDate][$le]=" + eDate.getTime();
 
-        List<OrderDTO> orders = new ArrayList<>();
+            HttpGet request = new HttpGet(url);
+            request.addHeader("X-Auth-Token", token);
+            request.addHeader("Accept", "*/*");
+            request.addHeader("Content-Type", "application/vnd.api+json");
+            request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
 
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            String json = EntityUtils.toString(response.getEntity());
-            System.out.println(json);
 
-            ObjectMapper objectMapper = new ObjectMapper();
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                String json = EntityUtils.toString(response.getEntity());
+                System.out.println(json);
 
-            JsonNode rootNode = objectMapper.readTree(json);
-            JsonNode dataNode = rootNode.get("data");
+                ObjectMapper objectMapper = new ObjectMapper();
 
-            if (dataNode.isArray()) {
-                for (JsonNode node : dataNode) {
-                    OrderDTO order = objectMapper.treeToValue(node, OrderDTO.class);
+                JsonNode rootNode = objectMapper.readTree(json);
+                JsonNode dataNode = rootNode.get("data");
 
-                    List<OrderProductDTO> products = getOrderProducts(order.getOrderId(), token);
+                if (pageCount == 0) {
+                    JsonNode metaNode = rootNode.get("meta");
 
-                    for (OrderProductDTO product : products) {
-                        //TODO: add product name or sku to order details
-                        order.setTotalPrice(product.getTotalPrice());
-                        order.setQuantity(product.getQuantity());
-
-                        orders.add(order);
+                    if (metaNode != null) {
+                        pageCount = metaNode.get("pageCount").asInt();
                     }
                 }
+
+                if (dataNode.isArray()) {
+                    for (JsonNode node : dataNode) {
+                        OrderDTO order = objectMapper.treeToValue(node, OrderDTO.class);
+
+                        List<OrderProductDTO> products = getOrderProducts(order.getOrderId(), token);
+
+                        for (OrderProductDTO product : products) {
+                            order.setCode(product.getCode());
+                            order.setName(product.getName());
+                            order.setTotalPrice(product.getTotalPrice());
+                            order.setQuantity(product.getQuantity());
+
+                            orders.add(order);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            counter++;
+        } while (counter < pageCount);
+
         return orders;
     }
 
@@ -113,36 +134,45 @@ public class OrderService {
         return products;
     }
 
-    public OrderStatsDTO getOrderStats(String startDate, String endDate, Integer merchantId) throws ParseException {
-        //todo: add token retrieval from postgresql
-        String token = "17LXGV0OswBHvVIsxheI+PXOfIzGjJ2n8+rncYOE62I=";
+    public OrderAmountStats getOrderAmountStats(String startDate, String endDate, Integer merchantId) throws ParseException, JsonProcessingException {
+        String token = "uLFl1Mhpq1cDDiMltbmYZy9OJInG1UUYbb851osILCc=";
 
-        List<OrderDTO> completedOrders = getOrderListByStatus(startDate, endDate, token, OrderStatus.ACCEPTED_BY_MERCHANT);
-        List<OrderDTO> cancelledOrders = getOrderListByStatus(startDate, endDate, token, OrderStatus.CANCELLED);
-        List<OrderDTO> returnedOrders = getOrderListByStatus(startDate, endDate, token, OrderStatus.RETURNED);
+        String completedJson = getOrderResponseByStatus(startDate, endDate, token, OrderStatus.ACCEPTED_BY_MERCHANT);
+        String cancelledJson = getOrderResponseByStatus(startDate, endDate, token, OrderStatus.CANCELLED);
+        String returnedJson = getOrderResponseByStatus(startDate, endDate, token, OrderStatus.RETURNED);
 
-        AtomicReference<Long> completedRevenue = new AtomicReference<>(0L);
-        AtomicReference<Long> cancelledRevenue = new AtomicReference<>(0L);
-        AtomicReference<Long> returnedRevenue = new AtomicReference<>(0L);
+        OrderAmountStats orderAmountStats = new OrderAmountStats();
 
-        completedOrders.forEach(order -> completedRevenue.updateAndGet(v -> v + order.getTotalPrice()));
-        cancelledOrders.forEach(order -> cancelledRevenue.updateAndGet(v -> v + order.getTotalPrice()));
-        returnedOrders.forEach(order -> returnedRevenue.updateAndGet(v -> v + order.getTotalPrice()));
-
-        OrderStatsDTO orderStatsDTO = new OrderStatsDTO();
-
-        orderStatsDTO.setCancelledOrders(cancelledOrders.size());
-        orderStatsDTO.setCompletedOrders(completedOrders.size());
-        orderStatsDTO.setReturnedOrders(returnedOrders.size());
-
-        orderStatsDTO.setCompletedRevenue(completedRevenue.get());
-        orderStatsDTO.setCancelledRevenue(cancelledRevenue.get());
-        orderStatsDTO.setReturnedRevenue(returnedRevenue.get());
-
-        return orderStatsDTO;
+        orderAmountStats.setCompletedOrders(
+                getOrderAmount(completedJson)
+        );
+        orderAmountStats.setCancelledOrders(
+                getOrderAmount(cancelledJson)
+        );
+        orderAmountStats.setReturnedOrders(
+                getOrderAmount(returnedJson)
+        );
+        return orderAmountStats;
     }
 
-    private List<OrderDTO> getOrderListByStatus(String startDate, String endDate, String token, OrderStatus orderStatus) throws ParseException {
+    public OrderRevenueStats getOrderRevenueStats(String startDate, String endDate, Integer merchantId) {
+        return null;
+    }
+
+    private Integer getOrderAmount(String json) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        JsonNode rootNode = objectMapper.readTree(json);
+        JsonNode metaNode = rootNode.get("meta");
+
+        int totalCount = 0;
+        if (metaNode != null) {
+            totalCount = metaNode.get("totalCount").asInt();
+        }
+        return totalCount;
+    }
+
+    private String getOrderResponseByStatus(String startDate, String endDate, String token, OrderStatus orderStatus) throws ParseException {
         SimpleDateFormat sdf = new SimpleDateFormat("dd-M-yyyy");
 
         String status = "COMPLETED";
@@ -177,26 +207,16 @@ public class OrderService {
         request.addHeader("Content-Type", "application/vnd.api+json");
         request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
 
-        List<OrderDTO> orderDTOS = new ArrayList<>();
-
         try (CloseableHttpResponse response = httpClient.execute(request)) {
-            String json = EntityUtils.toString(response.getEntity());
-            System.out.println(json);
-
-            ObjectMapper objectMapper = new ObjectMapper();
-
-            JsonNode rootNode = objectMapper.readTree(json);
-            JsonNode dataNode = rootNode.get("data");
-
-            if (dataNode.isArray()) {
-                for (JsonNode node : dataNode) {
-                    OrderDTO order = objectMapper.treeToValue(node, OrderDTO.class);
-                    orderDTOS.add(order);
-                }
+            int statusCode = response.getCode();
+            if (statusCode != 200) {
+                System.err.println("Error: API responded with status code " + statusCode);
+            } else {
+                return EntityUtils.toString(response.getEntity());
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return orderDTOS;
+        return null;
     }
 }

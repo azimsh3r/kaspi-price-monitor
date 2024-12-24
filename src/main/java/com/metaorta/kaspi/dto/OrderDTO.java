@@ -1,5 +1,6 @@
 package com.metaorta.kaspi.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.metaorta.kaspi.enums.OrderStatus;
@@ -36,6 +37,15 @@ public class OrderDTO {
     private OrderStatus orderStatus;
     private Boolean preOrder;
 
+    @JsonIgnore
+    private String code;
+
+    @JsonIgnore
+    private String name;
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @Setter
+    @Getter
     public static class Attributes {
         @JsonProperty("creationDate")
         public long creationDate;
@@ -43,7 +53,7 @@ public class OrderDTO {
         @JsonProperty("preorder")
         public Boolean preOrder;
 
-        @JsonProperty("customerName")
+        @JsonProperty("customer")
         public Customer customer;
 
         @JsonProperty("totalPrice")
@@ -52,6 +62,7 @@ public class OrderDTO {
         @JsonProperty("status")
         public String status;
 
+        @JsonIgnoreProperties(ignoreUnknown = true)
         public static class Customer {
             @JsonProperty("firstName")
             public String firstName;
