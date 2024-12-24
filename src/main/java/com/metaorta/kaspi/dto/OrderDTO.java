@@ -16,7 +16,7 @@ import java.time.ZoneId;
 @Getter
 public class OrderDTO {
 
-    @JsonProperty("orderId")
+    @JsonProperty("id")
     private String orderId;
 
     @JsonProperty("attributes")
@@ -37,10 +37,8 @@ public class OrderDTO {
     private OrderStatus orderStatus;
     private Boolean preOrder;
 
-    @JsonIgnore
     private String code;
 
-    @JsonIgnore
     private String name;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -50,7 +48,7 @@ public class OrderDTO {
         @JsonProperty("creationDate")
         public long creationDate;
 
-        @JsonProperty("preorder")
+        @JsonProperty("preOrder")
         public Boolean preOrder;
 
         @JsonProperty("customer")

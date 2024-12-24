@@ -1,222 +1,197 @@
 package com.metaorta.kaspi.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.metaorta.kaspi.dto.OrderDTO;
 import com.metaorta.kaspi.dto.OrderProductDTO;
-import com.metaorta.kaspi.model.OrderAmountStats;
 import com.metaorta.kaspi.enums.OrderStatus;
+import com.metaorta.kaspi.model.OrderAmountStats;
 import com.metaorta.kaspi.model.OrderRevenueStats;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
-//TODO: add token retrieval logic to the database
 @Service
 public class OrderService {
-    private final CloseableHttpClient httpClient;
 
-    @Autowired
-    public OrderService(CloseableHttpClient httpClient) {
+    private final CloseableHttpClient httpClient;
+    private final ObjectMapper objectMapper;
+
+    @Value("${api.kaspi.base-url}")
+    private String apiUrl;
+
+    @Value("${api.kaspi.token}")
+    private String token;
+
+    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper) {
         this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
     }
 
-    //TODO: Find out the paging strategy
-    public List<OrderDTO> getOrders(String startDate, String endDate, Integer merchantId) throws ParseException {
-        //TODO: fetch token from postgresql
-        String token = "uLFl1Mhpq1cDDiMltbmYZy9OJInG1UUYbb851osILCc=";
+    public List<OrderDTO> getOrders(String startDate, String endDate) {
+        validateDates(startDate, endDate);
+        long startMillis = parseDateToMillis(startDate);
+        long endMillis = parseDateToMillis(endDate);
 
         List<OrderDTO> orders = new ArrayList<>();
-
-        SimpleDateFormat sdf = new SimpleDateFormat("dd-M-yyyy");
-
-        Date sDate = sdf.parse(startDate);
-        Date eDate = sdf.parse(endDate);
-
-        int pageCount = 0;
-        int counter = 0;
+        int currentPage = 0;
+        int totalPages;
 
         do {
-            String url = "https://kaspi.kz/shop/api/v2/orders" +
-                    "?page[number]=" + (pageCount - 1) +
-                    "&page[size]=100" +
-                    "&filter[orders][state]=ARCHIVE" +
-                    "&filter[orders][creationDate][$ge]=" + sDate.getTime() +
-                    "&filter[orders][creationDate][$le]=" + eDate.getTime();
+            JsonNode responseJson = fetchOrdersFromApi(startMillis, endMillis, OrderStatus.UNKNOWN, currentPage);
+            totalPages = responseJson.path("meta").path("pageCount").asInt(1);
 
-            HttpGet request = new HttpGet(url);
-            request.addHeader("X-Auth-Token", token);
-            request.addHeader("Accept", "*/*");
-            request.addHeader("Content-Type", "application/vnd.api+json");
-            request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+            for (JsonNode orderNode : responseJson.path("data")) {
+                OrderDTO order = parseOrder(orderNode);
+                List<OrderProductDTO> products = getOrderProducts(order.getOrderId());
 
-
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                String json = EntityUtils.toString(response.getEntity());
-                System.out.println(json);
-
-                ObjectMapper objectMapper = new ObjectMapper();
-
-                JsonNode rootNode = objectMapper.readTree(json);
-                JsonNode dataNode = rootNode.get("data");
-
-                if (pageCount == 0) {
-                    JsonNode metaNode = rootNode.get("meta");
-
-                    if (metaNode != null) {
-                        pageCount = metaNode.get("pageCount").asInt();
-                    }
+                for (OrderProductDTO product : products) {
+                    order.setCode(product.getCode());
+                    order.setName(product.getName());
+                    order.setTotalPrice(product.getTotalPrice());
+                    order.setQuantity(product.getQuantity());
+                    orders.add(order);
                 }
-
-                if (dataNode.isArray()) {
-                    for (JsonNode node : dataNode) {
-                        OrderDTO order = objectMapper.treeToValue(node, OrderDTO.class);
-
-                        List<OrderProductDTO> products = getOrderProducts(order.getOrderId(), token);
-
-                        for (OrderProductDTO product : products) {
-                            order.setCode(product.getCode());
-                            order.setName(product.getName());
-                            order.setTotalPrice(product.getTotalPrice());
-                            order.setQuantity(product.getQuantity());
-
-                            orders.add(order);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+                orders.add(order);
             }
-            counter++;
-        } while (counter < pageCount);
+
+            currentPage++;
+        } while (currentPage < totalPages);
 
         return orders;
     }
 
-    private List<OrderProductDTO> getOrderProducts(String orderId, String token) {
-        String url = "https://kaspi.kz/shop/api/v2/orders/" + orderId + "/entries";
-
-        HttpGet request = new HttpGet(url);
-        request.addHeader("X-Auth-Token", token);
-        request.addHeader("Accept", "*/*");
-        request.addHeader("Content-Type", "application/vnd.api+json");
-        request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+    private List<OrderProductDTO> getOrderProducts(String orderId) {
+        String url = apiUrl + "/orders/" + orderId + "/entries";
+        HttpGet request = createHttpRequest(url);
 
         List<OrderProductDTO> products = new ArrayList<>();
-
         try (CloseableHttpResponse response = httpClient.execute(request)) {
-            String json = EntityUtils.toString(response.getEntity());
+            JsonNode responseJson = objectMapper.readTree(EntityUtils.toString(response.getEntity()));
 
-            ObjectMapper objectMapper = new ObjectMapper();
-
-            JsonNode rootNode = objectMapper.readTree(json);
-            JsonNode dataNode = rootNode.get("data");
-
-            if (dataNode.isArray()) {
-                for (JsonNode node : dataNode) {
-                    OrderProductDTO order = objectMapper.treeToValue(node, OrderProductDTO.class);
-                    products.add(order);
-                }
+            for (JsonNode productNode : responseJson.path("data")) {
+                products.add(objectMapper.treeToValue(productNode, OrderProductDTO.class));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logError("Failed to fetch order products", e);
         }
         return products;
     }
 
-    public OrderAmountStats getOrderAmountStats(String startDate, String endDate, Integer merchantId) throws ParseException, JsonProcessingException {
-        String token = "uLFl1Mhpq1cDDiMltbmYZy9OJInG1UUYbb851osILCc=";
+    public OrderAmountStats getOrderAmountStats(String startDate, String endDate) {
+        validateDates(startDate, endDate);
+        long startMillis = parseDateToMillis(startDate);
+        long endMillis = parseDateToMillis(endDate);
 
-        String completedJson = getOrderResponseByStatus(startDate, endDate, token, OrderStatus.ACCEPTED_BY_MERCHANT);
-        String cancelledJson = getOrderResponseByStatus(startDate, endDate, token, OrderStatus.CANCELLED);
-        String returnedJson = getOrderResponseByStatus(startDate, endDate, token, OrderStatus.RETURNED);
-
-        OrderAmountStats orderAmountStats = new OrderAmountStats();
-
-        orderAmountStats.setCompletedOrders(
-                getOrderAmount(completedJson)
+        return new OrderAmountStats(
+                getTotalCountByStatus(startMillis, endMillis, OrderStatus.ACCEPTED_BY_MERCHANT),
+                getTotalCountByStatus(startMillis, endMillis, OrderStatus.CANCELLED),
+                getTotalCountByStatus(startMillis, endMillis, OrderStatus.RETURNED)
         );
-        orderAmountStats.setCancelledOrders(
-                getOrderAmount(cancelledJson)
-        );
-        orderAmountStats.setReturnedOrders(
-                getOrderAmount(returnedJson)
-        );
-        return orderAmountStats;
     }
 
-    public OrderRevenueStats getOrderRevenueStats(String startDate, String endDate, Integer merchantId) {
-        return null;
+    public OrderRevenueStats getOrderRevenueStats(String startDate, String endDate) {
+        validateDates(startDate, endDate);
+        long startMillis = parseDateToMillis(startDate);
+        long endMillis = parseDateToMillis(endDate);
+
+        return new OrderRevenueStats(
+                getTotalRevenueByStatus(startMillis, endMillis, OrderStatus.ACCEPTED_BY_MERCHANT),
+                getTotalRevenueByStatus(startMillis, endMillis, OrderStatus.CANCELLED),
+                getTotalRevenueByStatus(startMillis, endMillis, OrderStatus.RETURNED)
+        );
     }
 
-    private Integer getOrderAmount(String json) throws JsonProcessingException {
-        ObjectMapper objectMapper = new ObjectMapper();
+    private int getTotalCountByStatus(long startMillis, long endMillis, OrderStatus status) {
+        JsonNode responseJson = fetchOrdersFromApi(startMillis, endMillis, status, 0);
+        return responseJson.path("meta").path("totalCount").asInt(0);
+    }
 
-        JsonNode rootNode = objectMapper.readTree(json);
-        JsonNode metaNode = rootNode.get("meta");
+    private int getTotalRevenueByStatus(long startMillis, long endMillis, OrderStatus status) {
+        int revenue = 0;
+        int currentPage = 0;
+        int totalPages;
 
-        int totalCount = 0;
-        if (metaNode != null) {
-            totalCount = metaNode.get("totalCount").asInt();
+        do {
+            JsonNode responseJson = fetchOrdersFromApi(startMillis, endMillis, status, currentPage);
+            totalPages = responseJson.path("meta").path("pageCount").asInt(1);
+
+            for (JsonNode orderNode : responseJson.path("data")) {
+                revenue += orderNode.path("attributes").path("totalPrice").asInt(0);
+            }
+
+            currentPage++;
+        } while (currentPage < totalPages);
+
+        return revenue;
+    }
+
+    private JsonNode fetchOrdersFromApi(long startMillis, long endMillis, OrderStatus status, int page) {
+        String url = apiUrl + "/orders?page[number]=" + page + "&page[size]=100" +
+                "&filter[orders][state]=ARCHIVE&filter[orders][creationDate][$ge]=" + startMillis +
+                "&filter[orders][creationDate][$le]=" + endMillis;
+        if (status != OrderStatus.UNKNOWN) {
+            url += "&filter[orders][status]=" + status;
         }
-        return totalCount;
+
+        System.out.println(url);
+
+        HttpGet request = createHttpRequest(url);
+
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
+            System.out.println("response received");
+
+            String json = EntityUtils.toString(response.getEntity());
+            System.out.println(json);
+            return objectMapper.readTree(json);
+        } catch (Exception e) {
+            logError("Failed to fetch orders from API", e);
+            throw new RuntimeException("API fetch failed", e);
+        }
     }
 
-    private String getOrderResponseByStatus(String startDate, String endDate, String token, OrderStatus orderStatus) throws ParseException {
-        SimpleDateFormat sdf = new SimpleDateFormat("dd-M-yyyy");
-
-        String status = "COMPLETED";
-        switch (orderStatus) {
-            case ACCEPTED_BY_MERCHANT: {
-                status = "COMPLETED";
-                break;
-            }
-            case CANCELLED: {
-                status = "CANCELLED";
-                break;
-            }
-            case RETURNED: {
-                status = "RETURNED";
-                break;
-            }
-        }
-
-        Date sDate = sdf.parse(startDate);
-        Date eDate = sdf.parse(endDate);
-
-        String url = "https://kaspi.kz/shop/api/v2/orders" +
-                "?page[number]=0&page[size]=100" +
-                "&filter[orders][state]=ARCHIVE" +
-                "&filter[orders][creationDate][$ge]=" + sDate.getTime() +
-                "&filter[orders][creationDate][$le]=" + eDate.getTime() +
-                "&filter[orders][status]=" + status;
-
+    private HttpGet createHttpRequest(String url) {
         HttpGet request = new HttpGet(url);
         request.addHeader("X-Auth-Token", token);
         request.addHeader("Accept", "*/*");
         request.addHeader("Content-Type", "application/vnd.api+json");
         request.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+        return request;
+    }
 
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            int statusCode = response.getCode();
-            if (statusCode != 200) {
-                System.err.println("Error: API responded with status code " + statusCode);
-            } else {
-                return EntityUtils.toString(response.getEntity());
-            }
+    private OrderDTO parseOrder(JsonNode orderNode) {
+        try {
+            return objectMapper.treeToValue(orderNode, OrderDTO.class);
         } catch (Exception e) {
-            e.printStackTrace();
+            logError("Failed to parse order", e);
+            throw new RuntimeException("Order parsing failed", e);
         }
-        return null;
+    }
+
+    private void validateDates(String startDate, String endDate) {
+        if (!StringUtils.hasText(startDate) || !StringUtils.hasText(endDate)) {
+            throw new IllegalArgumentException("Start date and end date must not be empty");
+        }
+    }
+
+    private long parseDateToMillis(String date) {
+        LocalDate localDate = LocalDate.parse(date, DateTimeFormatter.ISO_DATE);
+        return localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    private void logError(String message, Exception e) {
+        // Replace with a logging framework like SLF4J
+        System.err.println(message);
+        e.printStackTrace();
     }
 }

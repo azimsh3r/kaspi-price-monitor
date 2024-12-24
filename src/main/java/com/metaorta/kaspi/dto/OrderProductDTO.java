@@ -36,10 +36,8 @@ public class OrderProductDTO {
         @JsonProperty("totalPrice")
         private int totalPrice;
 
-        @JsonIgnore
         private String code;
 
-        @JsonIgnore
         private String name;
 
         @JsonProperty("offer")

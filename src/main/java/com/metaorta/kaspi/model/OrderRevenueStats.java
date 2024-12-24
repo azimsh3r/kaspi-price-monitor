@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 @Getter
 public class OrderRevenueStats {
-    private Long completedRevenue;
-    private Long cancelledRevenue;
-    private Long returnedRevenue;
+    private Integer completedRevenue;
+    private Integer cancelledRevenue;
+    private Integer returnedRevenue;
 }

@@ -25,17 +25,17 @@ public class OrderController {
     }
 
     @GetMapping
-    public List<OrderDTO> getAll() throws ParseException {
-        return orderService.getOrders("28-10-2024", "08-11-2024", 3);
+    public List<OrderDTO> getAll() throws ParseException, JsonProcessingException {
+        return orderService.getOrders("2024-12-12", "2024-12-23");
     }
 
     @GetMapping("/amountStats")
     public OrderAmountStats getOrderAmountStats() throws ParseException, JsonProcessingException {
-        return orderService.getOrderAmountStats("12-12-2024", "23-12-2024", 4);
+        return orderService.getOrderAmountStats("2024-12-12", "2024-12-23");
     }
 
     @GetMapping("/revenueStats")
-    public OrderRevenueStats getOrderRevenueStats() {
-        return orderService.getOrderRevenueStats("12-12-2024", "23-12-2024", 4);
+    public OrderRevenueStats getOrderRevenueStats() throws ParseException, JsonProcessingException {
+        return orderService.getOrderRevenueStats("2024-12-12", "2024-12-23");
     }
 }
