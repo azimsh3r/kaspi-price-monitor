@@ -16,4 +16,9 @@ public class UserSessionService {
         return sessionId;
 
     }
+
+    public void saveSessionToRedis(String username, String sessionId) {
+        redisTemplate.opsForValue().set(username, sessionId);
+        System.out.println("Session ID for " + username + " saved to Redis.");
+    }
 }

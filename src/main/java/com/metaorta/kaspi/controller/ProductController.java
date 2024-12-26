@@ -20,7 +20,7 @@ public class ProductController {
 
     @GetMapping
     public List<ProductDTO> getProducts() {
-        return productService.getFetchAllProducts("18420073","d639f7a4-6b59-4c7d-be24-66b71f5f217e");
+        return productService.getFetchAllProducts("18420073","02c516f7-5cc2-4f97-bc01-d79939b46092");
     }
 
 

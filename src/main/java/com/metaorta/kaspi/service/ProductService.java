@@ -1,14 +1,15 @@
 package com.metaorta.kaspi.service;
 
 
-
-
 import com.metaorta.kaspi.dto.ProductDTO;
+import com.metaorta.kaspi.exception.SessionExpiredException;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,11 @@ public class ProductService {
 
     List<ProductDTO> products = new ArrayList<>();
 
+    private final UserSessionService userSessionService;
 
-    public ProductService() {
+
+    public ProductService(UserSessionService userSessionService) {
+        this.userSessionService = userSessionService;
         this.httpClient = HttpClients.createDefault();
     }
 
@@ -43,13 +47,57 @@ public class ProductService {
 
         try (CloseableHttpResponse response = httpClient.execute(request)) {
             String responseBody = EntityUtils.toString(response.getEntity());
+            if(response.getCode() == 401 || response.getCode() == 403){
+                throw new SessionExpiredException("Session expired");
+            }
             System.out.println(responseBody);
             JSONObject jsonResponse = new JSONObject(responseBody);
-            int count = jsonResponse.optInt("published", 0);
-            return count;
-        } catch (Exception e) {
+            return jsonResponse.optInt("published", 0);
+        }catch (SessionExpiredException e) {
+            //TODO: Take new session and start it again
+            throw new RuntimeException("Error while fetching offer count", e);
+        }
+        catch (Exception e) {
 
             throw new RuntimeException("Error while fetching offer count", e);
+        }
+    }
+
+
+    public String getNewSession(String username,String password){
+        String url = "http://localhost:8081/getSession";
+
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpPost postRequest = new HttpPost(url);
+
+            postRequest.setHeader("Content-Type", "application/json");
+            postRequest.setHeader("User-Agent", "insomnium/0.2.3");
+
+            String jsonInput = "{\n" +
+                    "  \"email\": \"" + username + "\",\n" +
+                    "  \"password\": \"" + password + "\"\n" +
+                    "}";
+
+            postRequest.setEntity(new StringEntity(jsonInput));
+
+            // Отправляем запрос
+            CloseableHttpResponse response = client.execute(postRequest);
+
+            // Читаем и возвращаем ответ
+            int statusCode = response.getCode();
+            if (statusCode == 200) {
+                String responseBody = EntityUtils.toString(response.getEntity());
+                JSONObject jsonResponse = new JSONObject(responseBody);
+                String sessionId = jsonResponse.optString("sid");
+                userSessionService.saveSessionToRedis(username,sessionId);
+                return sessionId;
+
+            } else {
+                return "Error: " + statusCode;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "An error occurred: " + e.getMessage();
         }
     }
     //TODO: Добавить метод в getFetchAllProducts , чтобы он по merchantId получал sessionId
