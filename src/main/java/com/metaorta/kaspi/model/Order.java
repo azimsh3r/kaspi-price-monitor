@@ -1,5 +1,6 @@
 package com.metaorta.kaspi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.metaorta.kaspi.enums.OrderStatus;
 import jakarta.persistence.*;
 import jdk.jfr.Timestamp;
@@ -18,6 +19,7 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name="id")
+    @JsonIgnore
     private Integer id;
 
     @Column(name="order_id")

@@ -7,7 +7,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Setter
 @Getter
-public class OrderRevenueStats {
+public class OrderRevenueStatsDTO {
     private Integer completedRevenue;
     private Integer cancelledRevenue;
     private Integer returnedRevenue;
