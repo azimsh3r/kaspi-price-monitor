@@ -1,4 +1,4 @@
-package com.metaorta.kaspi.model;
+package com.metaorta.kaspi.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

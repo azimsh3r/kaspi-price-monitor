@@ -3,14 +3,19 @@ package com.metaorta.kaspi.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.metaorta.kaspi.dto.OrderDTO;
-import com.metaorta.kaspi.dto.OrderProductDTO;
+import com.metaorta.kaspi.dto.OrderEntryDTO;
 import com.metaorta.kaspi.enums.OrderStatus;
-import com.metaorta.kaspi.model.OrderAmountStats;
-import com.metaorta.kaspi.model.OrderRevenueStats;
+import com.metaorta.kaspi.dto.OrderAmountStats;
+import com.metaorta.kaspi.dto.OrderRevenueStats;
+import com.metaorta.kaspi.model.Order;
+import com.metaorta.kaspi.model.OrderEntry;
+import com.metaorta.kaspi.repository.OrderEntryRepository;
+import com.metaorta.kaspi.repository.OrderRepository;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -18,14 +23,19 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
-
     private final CloseableHttpClient httpClient;
     private final ObjectMapper objectMapper;
+
+    private final ModelMapper modelMapper;
+
+    private final OrderRepository orderRepository;
+
+    private final OrderEntryRepository orderEntryRepository;
 
     @Value("${api.kaspi.base-url}")
     private String apiUrl;
@@ -33,9 +43,53 @@ public class OrderService {
     @Value("${api.kaspi.token}")
     private String token;
 
-    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper) {
+    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper, ModelMapper modelMapper, OrderRepository orderRepository, OrderEntryRepository orderEntryRepository) {
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
+        this.modelMapper = modelMapper;
+        this.orderRepository = orderRepository;
+        this.orderEntryRepository = orderEntryRepository;
+    }
+
+    //TODO: run the scheduler every 24 hours
+    public void syncOrdersScheduler() {
+        //TODO: run a scheduler to sync orders every 24 hours
+    }
+
+    public void syncOrders(String startDate, String endDate) {
+        List<OrderDTO> orderDTOS = getOrders(startDate, endDate);
+
+        Set<String> existingOrderIds = new HashSet<>(
+                orderRepository.findOrderIdsByOrderIdIn(
+                        orderDTOS.stream().map(OrderDTO::getOrderId).collect(Collectors.toList())
+                )
+        );
+
+        List<Order> ordersToSave = new ArrayList<>();
+        List<OrderEntry> orderEntriesToSave = new ArrayList<>();
+
+        orderDTOS.stream()
+                .filter(orderDTO -> !existingOrderIds.contains(orderDTO.getOrderId())) // Skip duplicates
+                .forEach(orderDTO -> {
+                    Order order = new Order();
+                    order.setPreOrder(orderDTO.getPreOrder());
+                    order.setCreatedAt(orderDTO.getOrderDate());
+                    order.setCustomerName(orderDTO.getCustomerName());
+                    order.setCustomerPhoneNumber(orderDTO.getCustomerPhoneNumber());
+                    order.setTotalPrice(orderDTO.getTotalPrice());
+                    order.setOrderId(orderDTO.getOrderId());
+
+                    ordersToSave.add(order);
+
+                    orderDTO.getOrderEntryDTOS().forEach(orderEntryDTO -> {
+                        OrderEntry orderEntry = modelMapper.map(orderEntryDTO, OrderEntry.class);
+                        orderEntry.setOrder(order);
+                        orderEntriesToSave.add(orderEntry);
+                    });
+                });
+
+        orderRepository.saveAll(ordersToSave);
+        orderEntryRepository.saveAll(orderEntriesToSave);
     }
 
     public List<OrderDTO> getOrders(String startDate, String endDate) {
@@ -48,39 +102,33 @@ public class OrderService {
         int totalPages;
 
         do {
-            JsonNode responseJson = fetchOrdersFromApi(startMillis, endMillis, OrderStatus.UNKNOWN, currentPage);
+            JsonNode responseJson = fetchOrdersFromApi(startMillis, endMillis, OrderStatus.DEFAULT, currentPage);
             totalPages = responseJson.path("meta").path("pageCount").asInt(1);
 
             for (JsonNode orderNode : responseJson.path("data")) {
                 OrderDTO order = parseOrder(orderNode);
-                List<OrderProductDTO> products = getOrderProducts(order.getOrderId());
+                List<OrderEntryDTO> orderEntries = getOrderProducts(order.getOrderId());
 
-                for (OrderProductDTO product : products) {
-                    order.setCode(product.getCode());
-                    order.setName(product.getName());
-                    order.setTotalPrice(product.getTotalPrice());
-                    order.setQuantity(product.getQuantity());
-                    orders.add(order);
-                }
+                order.setOrderEntryDTOS(orderEntries);
+
                 orders.add(order);
             }
-
             currentPage++;
         } while (currentPage < totalPages);
 
         return orders;
     }
 
-    private List<OrderProductDTO> getOrderProducts(String orderId) {
+    private List<OrderEntryDTO> getOrderProducts(String orderId) {
         String url = apiUrl + "/orders/" + orderId + "/entries";
         HttpGet request = createHttpRequest(url);
 
-        List<OrderProductDTO> products = new ArrayList<>();
+        List<OrderEntryDTO> products = new ArrayList<>();
         try (CloseableHttpResponse response = httpClient.execute(request)) {
             JsonNode responseJson = objectMapper.readTree(EntityUtils.toString(response.getEntity()));
 
             for (JsonNode productNode : responseJson.path("data")) {
-                products.add(objectMapper.treeToValue(productNode, OrderProductDTO.class));
+                products.add(objectMapper.treeToValue(productNode, OrderEntryDTO.class));
             }
         } catch (Exception e) {
             logError("Failed to fetch order products", e);
@@ -112,11 +160,13 @@ public class OrderService {
         );
     }
 
+    //TODO: seek the data from orders where status = :status and id = :merchantId
     private int getTotalCountByStatus(long startMillis, long endMillis, OrderStatus status) {
         JsonNode responseJson = fetchOrdersFromApi(startMillis, endMillis, status, 0);
         return responseJson.path("meta").path("totalCount").asInt(0);
     }
 
+    //TODO: seek date from db instead of request
     private int getTotalRevenueByStatus(long startMillis, long endMillis, OrderStatus status) {
         int revenue = 0;
         int currentPage = 0;
@@ -129,10 +179,8 @@ public class OrderService {
             for (JsonNode orderNode : responseJson.path("data")) {
                 revenue += orderNode.path("attributes").path("totalPrice").asInt(0);
             }
-
             currentPage++;
         } while (currentPage < totalPages);
-
         return revenue;
     }
 
@@ -140,7 +188,7 @@ public class OrderService {
         String url = apiUrl + "/orders?page[number]=" + page + "&page[size]=100" +
                 "&filter[orders][state]=ARCHIVE&filter[orders][creationDate][$ge]=" + startMillis +
                 "&filter[orders][creationDate][$le]=" + endMillis;
-        if (status != OrderStatus.UNKNOWN) {
+        if (status != OrderStatus.DEFAULT) {
             url += "&filter[orders][status]=" + status;
         }
 

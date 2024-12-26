@@ -1,11 +1,9 @@
 package com.metaorta.kaspi.enums;
 
-import org.hibernate.query.Order;
-
 public enum OrderStatus {
     ACCEPTED_BY_MERCHANT,
     CANCELLED,
-    UNKNOWN,
+    DEFAULT,
     RETURNED;
 
     public static OrderStatus fromStatus(String status) {
@@ -13,7 +11,7 @@ public enum OrderStatus {
             case "COMPLETED" -> ACCEPTED_BY_MERCHANT;
             case "CANCELLED" -> CANCELLED;
             case "RETURNED" -> RETURNED;
-            default -> UNKNOWN;
+            default -> DEFAULT;
         };
     }
 
@@ -21,7 +19,7 @@ public enum OrderStatus {
         return switch (orderStatus) {
             case ACCEPTED_BY_MERCHANT -> "ACCEPTED_BY_MERCHANT";
             case CANCELLED -> "CANCELLED";
-            case UNKNOWN -> null;
+            case DEFAULT -> null;
             case RETURNED -> "RETURNED";
         };
     }

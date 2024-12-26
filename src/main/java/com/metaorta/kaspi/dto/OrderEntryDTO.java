@@ -1,6 +1,5 @@
 package com.metaorta.kaspi.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
@@ -9,12 +8,12 @@ import lombok.Setter;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Setter
 @Getter
-public class OrderProductDTO {
+public class OrderEntryDTO {
     private int quantity;
 
     private int totalPrice;
 
-    private String code;
+    private String sku;
 
     private String name;
 
@@ -23,7 +22,7 @@ public class OrderProductDTO {
         this.quantity = attributes.quantity;
         this.totalPrice = attributes.totalPrice;
 
-        this.code = attributes.getCode();
+        this.sku = attributes.getCode();
         this.name = attributes.getName();
     }
 

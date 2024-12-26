@@ -1,6 +1,5 @@
 package com.metaorta.kaspi.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.metaorta.kaspi.enums.OrderStatus;
@@ -10,12 +9,13 @@ import lombok.Setter;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Setter
 @Getter
 public class OrderDTO {
-
     @JsonProperty("id")
     private String orderId;
 
@@ -28,18 +28,16 @@ public class OrderDTO {
         this.totalPrice = attributes.totalPrice;
         this.orderStatus = OrderStatus.fromStatus(attributes.status);
         this.preOrder = attributes.preOrder;
+        this.customerPhoneNumber = attributes.customer.cellPhone;
     }
 
     private LocalDateTime orderDate;
     private String customerName;
+    private String customerPhoneNumber;
     private Integer totalPrice;
-    private Integer quantity;
     private OrderStatus orderStatus;
     private Boolean preOrder;
-
-    private String code;
-
-    private String name;
+    private List<OrderEntryDTO> orderEntryDTOS = new ArrayList<>();
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     @Setter
@@ -67,6 +65,9 @@ public class OrderDTO {
 
             @JsonProperty("lastName")
             public String lastName;
+
+            @JsonProperty("cellPhone")
+            public String cellPhone;
         }
     }
 }
