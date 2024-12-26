@@ -18,20 +18,21 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     @Query("SELECT o.orderId FROM Order o WHERE o.orderId IN :orderIds")
     List<String> findOrderIdsByOrderIdIn(@Param("orderIds") List<String> orderIds);
 
-    @Query("SELECT COUNT(*) FROM Order WHERE orderStatus = :orderStatus and createdAt BETWEEN :startDate AND :endDate")
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.orderStatus = :orderStatus AND o.createdAt BETWEEN :startDate AND :endDate")
     Integer countAllByOrderStatus(@Param("orderStatus") OrderStatus orderStatus,
-                                  @Param("startDate") LocalDate startDate,
-                                  @Param("endDate") LocalDate endDate
-    );
+                                  @Param("startDate") LocalDateTime startDate,
+                                  @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT SUM(totalPrice) FROM Order WHERE orderStatus = :orderStatus and createdAt BETWEEN :startDate AND :endDate")
+    @Query("SELECT SUM(o.totalPrice) FROM Order o WHERE o.orderStatus = :orderStatus AND o.createdAt BETWEEN :startDate AND :endDate")
     Integer findRevenueByOrderStatus(@Param("orderStatus") OrderStatus orderStatus,
-                                  @Param("startDate") LocalDate startDate,
-                                  @Param("endDate") LocalDate endDate
-    );
+                                     @Param("startDate") LocalDateTime startDate,
+                                     @Param("endDate") LocalDateTime endDate);
 
     @Query("SELECT e FROM Order e WHERE e.createdAt BETWEEN :startDate AND :endDate")
     Page<Order> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
-                                            @Param("endDate") LocalDateTime endDate,
-                                            Pageable pageable);
+                                       @Param("endDate") LocalDateTime endDate,
+                                       Pageable pageable);
+
+    @Query("SELECT o.createdAt FROM Order o ORDER BY o.createdAt DESC")
+    LocalDateTime findLastOrderCreatedAt();
 }

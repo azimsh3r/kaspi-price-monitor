@@ -6,9 +6,15 @@ import com.metaorta.kaspi.model.Order;
 import com.metaorta.kaspi.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 //TODO: add param validation support
 @RestController
@@ -27,17 +33,27 @@ public class OrderController {
     }
 
     @GetMapping("/amount")
-    public OrderAmountStatsDTO getOrderAmountStats(@RequestParam String startDate, @RequestParam String endDate, @RequestParam Integer merchantId) {
+    public OrderAmountStatsDTO getOrderAmountStats(@RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate startDate,
+                                                   @RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate endDate,
+                                                   @RequestParam Integer merchantId) {
         return orderService.getOrderAmountStats(startDate, endDate, merchantId);
     }
 
+
     @GetMapping("/revenue")
-    public OrderRevenueStatsDTO getOrderRevenueStats(@RequestParam String startDate, @RequestParam String endDate, @RequestParam Integer merchantId) {
+    public OrderRevenueStatsDTO getOrderRevenueStats(@RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate startDate,
+                                                     @RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate endDate,
+                                                     @RequestParam Integer merchantId) {
         return orderService.getOrderRevenueStats(startDate, endDate, merchantId);
     }
 
     @PostMapping("/sync")
     public ResponseEntity<String> syncOrders(@RequestParam String startDate, @RequestParam String endDate, @RequestParam Integer merchantId) {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+        LocalDate start = LocalDate.parse(startDate, dateTimeFormatter);
+        LocalDate end = LocalDate.parse(endDate, dateTimeFormatter);
+
         orderService.syncOrders(startDate, endDate, merchantId);
         return new ResponseEntity<>("Orders are synchronized successfully", HttpStatus.OK);
     }

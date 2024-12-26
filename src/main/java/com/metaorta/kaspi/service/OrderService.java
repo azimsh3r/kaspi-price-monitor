@@ -1,5 +1,6 @@
 package com.metaorta.kaspi.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.metaorta.kaspi.dto.OrderDTO;
@@ -21,11 +22,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -45,29 +53,35 @@ public class OrderService {
 
     private final OrderEntryRepository orderEntryRepository;
 
+    private final RestTemplate restTemplate;
+
     @Value("${api.kaspi.base-url}")
     private String apiUrl;
 
     @Value("${api.kaspi.token}")
     private String token;
 
-    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper, ModelMapper modelMapper, OrderRepository orderRepository, OrderEntryRepository orderEntryRepository) {
+    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper, ModelMapper modelMapper, OrderRepository orderRepository, OrderEntryRepository orderEntryRepository, RestTemplate restTemplate) {
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.modelMapper = modelMapper;
         this.orderRepository = orderRepository;
         this.orderEntryRepository = orderEntryRepository;
+        this.restTemplate = restTemplate;
     }
 
-    public void syncOrdersScheduler() {
+    public void syncOrdersScheduler(Integer merchantId) {
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
 
         Runnable task = () -> {
             try {
-                String today = LocalDate.now().toString();
+                //TODO: add stop mechanism
+                LocalDate lastOrder = orderRepository.findLastOrderCreatedAt().toLocalDate();
 
-                syncOrders(today, today, null);
-                System.out.println("syncOrders task completed successfully for " + today);
+                String now = LocalDate.now().toString();
+
+                syncOrders(String.valueOf(lastOrder), now, merchantId);
+                System.out.println("SyncOrders task completed successfully");
             } catch (Exception e) {
                 System.err.println("Error executing syncOrders: " + e.getMessage());
             }
@@ -103,13 +117,7 @@ public class OrderService {
         orderDTOS.stream()
                 .filter(orderDTO -> !existingOrderIds.contains(orderDTO.getOrderId())) // Skip duplicates
                 .forEach(orderDTO -> {
-                    Order order = new Order();
-                    order.setPreOrder(orderDTO.getPreOrder());
-                    order.setCreatedAt(orderDTO.getOrderDate());
-                    order.setCustomerName(orderDTO.getCustomerName());
-                    order.setCustomerPhoneNumber(orderDTO.getCustomerPhoneNumber());
-                    order.setTotalPrice(orderDTO.getTotalPrice());
-                    order.setOrderId(orderDTO.getOrderId());
+                    Order order = convertDTOToOrder(orderDTO);
 
                     ordersToSave.add(order);
 
@@ -124,23 +132,37 @@ public class OrderService {
         orderEntryRepository.saveAll(orderEntriesToSave);
     }
 
-    public OrderAmountStatsDTO getOrderAmountStats(String startDate, String endDate, Integer id) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    private static Order convertDTOToOrder(OrderDTO orderDTO) {
+        Order order = new Order();
+        order.setPreOrder(orderDTO.getPreOrder());
+        order.setCreatedAt(orderDTO.getOrderDate());
+        order.setCustomerName(orderDTO.getCustomerName());
+        order.setCustomerPhoneNumber(orderDTO.getCustomerPhoneNumber());
+        order.setTotalPrice(orderDTO.getTotalPrice());
+        order.setOrderId(orderDTO.getOrderId());
+        order.setOrderStatus(orderDTO.getOrderStatus());
+        return order;
+    }
+
+    public OrderAmountStatsDTO getOrderAmountStats(LocalDate startDate, LocalDate endDate, Integer id) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
         return new OrderAmountStatsDTO(
-                orderRepository.countAllByOrderStatus(OrderStatus.ACCEPTED_BY_MERCHANT, LocalDate.parse(startDate, formatter), LocalDate.parse(endDate, formatter)),
-                orderRepository.countAllByOrderStatus(OrderStatus.CANCELLED, LocalDate.parse(startDate, formatter), LocalDate.parse(endDate, formatter)),
-                orderRepository.countAllByOrderStatus(OrderStatus.RETURNED, LocalDate.parse(startDate, formatter), LocalDate.parse(endDate, formatter))
+                orderRepository.countAllByOrderStatus(OrderStatus.ACCEPTED_BY_MERCHANT, startDateTime, endDateTime),
+                orderRepository.countAllByOrderStatus(OrderStatus.CANCELLED, startDateTime, endDateTime),
+                orderRepository.countAllByOrderStatus(OrderStatus.RETURNED, startDateTime, endDateTime)
         );
     }
 
-    public OrderRevenueStatsDTO getOrderRevenueStats(String startDate, String endDate, Integer id) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    public OrderRevenueStatsDTO getOrderRevenueStats(LocalDate startDate, LocalDate endDate, Integer id) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
         return new OrderRevenueStatsDTO(
-                orderRepository.findRevenueByOrderStatus(OrderStatus.ACCEPTED_BY_MERCHANT, LocalDate.parse(startDate, formatter), LocalDate.parse(endDate, formatter)),
-                orderRepository.findRevenueByOrderStatus(OrderStatus.CANCELLED, LocalDate.parse(startDate, formatter), LocalDate.parse(endDate, formatter)),
-                orderRepository.findRevenueByOrderStatus(OrderStatus.RETURNED, LocalDate.parse(startDate, formatter), LocalDate.parse(endDate, formatter))
+                orderRepository.findRevenueByOrderStatus(OrderStatus.ACCEPTED_BY_MERCHANT, startDateTime, endDateTime),
+                orderRepository.findRevenueByOrderStatus(OrderStatus.CANCELLED, startDateTime, endDateTime),
+                orderRepository.findRevenueByOrderStatus(OrderStatus.RETURNED, startDateTime, endDateTime)
         );
     }
 
@@ -148,11 +170,13 @@ public class OrderService {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt"));
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-        return orderRepository.findByCreatedAtBetween(
-                    LocalDateTime.parse(startDate, formatter),
-                    LocalDateTime.parse(endDate, formatter),
-                    pageable
-                );
+        LocalDate start = LocalDate.parse(startDate, formatter);
+        LocalDate end = LocalDate.parse(endDate, formatter);
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
+
+        return orderRepository.findByCreatedAtBetween(startDateTime, endDateTime, pageable);
     }
 
     public List<OrderDTO> fetchOrders(String startDate, String endDate, Integer id) {
@@ -184,19 +208,34 @@ public class OrderService {
 
     private List<OrderEntryDTO> fetchOrderProducts(String orderId) {
         String url = apiUrl + "/orders/" + orderId + "/entries";
-        HttpGet request = createHttpRequest(url);
 
         List<OrderEntryDTO> products = new ArrayList<>();
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            JsonNode responseJson = objectMapper.readTree(EntityUtils.toString(response.getEntity()));
+        try {
+            ResponseEntity<JsonNode> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    createHttpEntity(),
+                    JsonNode.class
+            );
 
-            for (JsonNode productNode : responseJson.path("data")) {
+            for (JsonNode productNode : response.getBody().path("data")) {
                 products.add(objectMapper.treeToValue(productNode, OrderEntryDTO.class));
             }
-        } catch (Exception e) {
+        } catch (RestClientException e) {
             logError("Failed to fetch order products", e);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
         return products;
+    }
+
+    private OrderDTO parseOrder(JsonNode orderNode) {
+        try {
+            return objectMapper.treeToValue(orderNode, OrderDTO.class);
+        } catch (Exception e) {
+            logError("Failed to parse order", e);
+            throw new RuntimeException("Order parsing failed", e);
+        }
     }
 
     private JsonNode fetchOrdersFromApi(long startMillis, long endMillis, OrderStatus status, int page) {
@@ -232,13 +271,14 @@ public class OrderService {
         return request;
     }
 
-    private OrderDTO parseOrder(JsonNode orderNode) {
-        try {
-            return objectMapper.treeToValue(orderNode, OrderDTO.class);
-        } catch (Exception e) {
-            logError("Failed to parse order", e);
-            throw new RuntimeException("Order parsing failed", e);
-        }
+    private HttpEntity<String> createHttpEntity() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Auth-Token", token);
+        headers.set("Accept", "*/*");
+        headers.set("Content-Type", "application/vnd.api+json");
+        headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+
+        return new HttpEntity<>(headers);
     }
 
     private void validateDates(String startDate, String endDate) {
@@ -248,7 +288,9 @@ public class OrderService {
     }
 
     private long parseDateToMillis(String date) {
-        LocalDate localDate = LocalDate.parse(date, DateTimeFormatter.ISO_DATE);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        LocalDate localDate = LocalDate.parse(date, formatter);
+
         return localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 

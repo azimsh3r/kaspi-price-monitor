@@ -1,6 +1,7 @@
 package com.metaorta.kaspi.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.metaorta.kaspi.enums.OrderStatus;
 import jakarta.persistence.*;
 import jdk.jfr.Timestamp;
@@ -42,8 +43,10 @@ public class Order {
 
     @OneToMany(mappedBy = "order")
     @Cascade(org.hibernate.annotations.CascadeType.PERSIST)
+    @JsonManagedReference
     private List<OrderEntry> orderEntries;
 
-    @Column(name="status")
+    @Column(name = "status")
+    @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
 }
