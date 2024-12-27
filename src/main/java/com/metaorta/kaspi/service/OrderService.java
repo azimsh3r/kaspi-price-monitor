@@ -76,6 +76,7 @@ public class OrderService {
         Runnable task = () -> {
             try {
                 //TODO: add stop mechanism
+
                 LocalDate lastOrder = orderRepository.findLastOrderCreatedAt().toLocalDate();
 
                 String now = LocalDate.now().toString();

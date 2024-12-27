@@ -12,11 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 
-//TODO: add param validation support
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -49,11 +45,6 @@ public class OrderController {
 
     @PostMapping("/sync")
     public ResponseEntity<String> syncOrders(@RequestParam String startDate, @RequestParam String endDate, @RequestParam Integer merchantId) {
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-
-        LocalDate start = LocalDate.parse(startDate, dateTimeFormatter);
-        LocalDate end = LocalDate.parse(endDate, dateTimeFormatter);
-
         orderService.syncOrders(startDate, endDate, merchantId);
         return new ResponseEntity<>("Orders are synchronized successfully", HttpStatus.OK);
     }

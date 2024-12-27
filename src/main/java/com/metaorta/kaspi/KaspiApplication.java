@@ -13,6 +13,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.client.DefaultResponseErrorHandler;
@@ -49,25 +50,19 @@ public class KaspiApplication {
 
     @Bean
     public RestTemplate restTemplate() {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(1000000);
-        factory.setReadTimeout(30000000);
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(200);
+        connectionManager.setDefaultMaxPerRoute(20);
 
-        RestTemplate restTemplate = new RestTemplate(factory);
+        HttpClient client = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .build();
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(client);
 
-        restTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
-            @Override
-            public void handleError(ClientHttpResponse response) throws IOException {
-                // Log the error or handle specific HTTP status codes
-                if (response.getStatusCode().is5xxServerError()) {
-                    throw new HttpServerErrorException(response.getStatusCode());
-                } else if (response.getStatusCode().is4xxClientError()) {
-                    throw new HttpClientErrorException(response.getStatusCode());
-                }
-            }
-        });
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(5000);
 
-        return restTemplate;
+        return new RestTemplate(factory);
     }
 
 
