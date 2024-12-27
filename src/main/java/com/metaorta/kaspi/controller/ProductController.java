@@ -23,4 +23,3 @@ public class ProductController {
         return productService.getFetchAllProducts("18420073","02c516f7-5cc2-4f97-bc01-d79939b46092");
     }
 }
-

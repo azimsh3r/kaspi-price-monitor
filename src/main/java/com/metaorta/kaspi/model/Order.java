@@ -49,4 +49,8 @@ public class Order {
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
+
+    @ManyToOne
+    @JoinColumn(name="merchant_id", referencedColumnName = "id")
+    private Merchant merchant;
 }

@@ -77,7 +77,7 @@ public class OrderService {
             try {
                 //TODO: add stop mechanism
 
-                LocalDate lastOrder = orderRepository.findLastOrderCreatedAt().toLocalDate();
+                LocalDate lastOrder = orderRepository.findLastOrderCreatedAtAndMerchantId(merchantId).toLocalDate();
 
                 String now = LocalDate.now().toString();
 
@@ -103,12 +103,14 @@ public class OrderService {
         }));
     }
 
-    public void syncOrders(String startDate, String endDate, Integer id) {
-        List<OrderDTO> orderDTOS = fetchOrders(startDate, endDate, id);
+    public void syncOrders(String startDate, String endDate, Integer merchantId) {
+        List<OrderDTO> orderDTOS = fetchOrders(startDate, endDate, merchantId);
 
         Set<String> existingOrderIds = new HashSet<>(
-                orderRepository.findOrderIdsByOrderIdIn(
-                        orderDTOS.stream().map(OrderDTO::getOrderId).collect(Collectors.toList())
+                orderRepository.findOrderIdsByOrderIdInAndMerchantId(
+                        orderDTOS.stream().map(OrderDTO::getOrderId).collect(Collectors.toList()),
+                        merchantId
+
                 )
         );
 
@@ -145,25 +147,25 @@ public class OrderService {
         return order;
     }
 
-    public OrderAmountStatsDTO getOrderAmountStats(LocalDate startDate, LocalDate endDate, Integer id) {
+    public OrderAmountStatsDTO getOrderAmountStats(LocalDate startDate, LocalDate endDate, Integer merchantId) {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
         return new OrderAmountStatsDTO(
-                orderRepository.countAllByOrderStatus(OrderStatus.ACCEPTED_BY_MERCHANT, startDateTime, endDateTime),
-                orderRepository.countAllByOrderStatus(OrderStatus.CANCELLED, startDateTime, endDateTime),
-                orderRepository.countAllByOrderStatus(OrderStatus.RETURNED, startDateTime, endDateTime)
+                orderRepository.countAllByOrderStatusAndMerchantId(OrderStatus.ACCEPTED_BY_MERCHANT, startDateTime, endDateTime, merchantId),
+                orderRepository.countAllByOrderStatusAndMerchantId(OrderStatus.CANCELLED, startDateTime, endDateTime, merchantId),
+                orderRepository.countAllByOrderStatusAndMerchantId(OrderStatus.RETURNED, startDateTime, endDateTime, merchantId)
         );
     }
 
-    public OrderRevenueStatsDTO getOrderRevenueStats(LocalDate startDate, LocalDate endDate, Integer id) {
+    public OrderRevenueStatsDTO getOrderRevenueStats(LocalDate startDate, LocalDate endDate, Integer merchantId) {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
         return new OrderRevenueStatsDTO(
-                orderRepository.findRevenueByOrderStatus(OrderStatus.ACCEPTED_BY_MERCHANT, startDateTime, endDateTime),
-                orderRepository.findRevenueByOrderStatus(OrderStatus.CANCELLED, startDateTime, endDateTime),
-                orderRepository.findRevenueByOrderStatus(OrderStatus.RETURNED, startDateTime, endDateTime)
+                orderRepository.findRevenueByOrderStatusAndMerchantId(OrderStatus.ACCEPTED_BY_MERCHANT, startDateTime, endDateTime, merchantId),
+                orderRepository.findRevenueByOrderStatusAndMerchantId(OrderStatus.CANCELLED, startDateTime, endDateTime, merchantId),
+                orderRepository.findRevenueByOrderStatusAndMerchantId(OrderStatus.RETURNED, startDateTime, endDateTime, merchantId)
         );
     }
 
@@ -177,7 +179,7 @@ public class OrderService {
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
 
-        return orderRepository.findByCreatedAtBetween(startDateTime, endDateTime, pageable);
+        return orderRepository.findByCreatedAtBetweenAndMerchantId(startDateTime, endDateTime, merchantId, pageable);
     }
 
     public List<OrderDTO> fetchOrders(String startDate, String endDate, Integer id) {

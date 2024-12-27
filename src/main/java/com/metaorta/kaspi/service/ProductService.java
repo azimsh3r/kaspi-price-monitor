@@ -19,10 +19,7 @@ import java.util.List;
 
 @Service
 public class ProductService {
-
     private final CloseableHttpClient httpClient;
-
-    List<ProductDTO> products = new ArrayList<>();
 
     private final UserSessionService userSessionService;
 
@@ -31,8 +28,6 @@ public class ProductService {
         this.userSessionService = userSessionService;
         this.httpClient = HttpClients.createDefault();
     }
-
-
 
     public Integer getOfferCount(String merchantId, String sessionId) {
         String url = "https://mc.shop.kaspi.kz/offers/api/v1/offer/count?m=" + merchantId;
@@ -143,5 +138,3 @@ public class ProductService {
         return products;
     }
 }
-
-

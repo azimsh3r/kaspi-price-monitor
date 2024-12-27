@@ -49,4 +49,7 @@ public class Merchant {
 
     @Column(name="is_active")
     private Boolean isActive;
+
+    @OneToMany(mappedBy = "merchant")
+    private List<Order> orders;
 }
