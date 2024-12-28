@@ -8,6 +8,7 @@ import com.metaorta.kaspi.dto.OrderEntryDTO;
 import com.metaorta.kaspi.enums.OrderStatus;
 import com.metaorta.kaspi.dto.OrderAmountStatsDTO;
 import com.metaorta.kaspi.dto.OrderRevenueStatsDTO;
+import com.metaorta.kaspi.model.Merchant;
 import com.metaorta.kaspi.model.Order;
 import com.metaorta.kaspi.model.OrderEntry;
 import com.metaorta.kaspi.repository.OrderEntryRepository;
@@ -55,19 +56,22 @@ public class OrderService {
 
     private final RestTemplate restTemplate;
 
+    private final MerchantService merchantService;
+
     @Value("${api.kaspi.base-url}")
     private String apiUrl;
 
     @Value("${api.kaspi.token}")
     private String token;
 
-    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper, ModelMapper modelMapper, OrderRepository orderRepository, OrderEntryRepository orderEntryRepository, RestTemplate restTemplate) {
+    public OrderService(CloseableHttpClient httpClient, ObjectMapper objectMapper, ModelMapper modelMapper, OrderRepository orderRepository, OrderEntryRepository orderEntryRepository, RestTemplate restTemplate, MerchantService merchantService) {
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.modelMapper = modelMapper;
         this.orderRepository = orderRepository;
         this.orderEntryRepository = orderEntryRepository;
         this.restTemplate = restTemplate;
+        this.merchantService = merchantService;
     }
 
     public void syncOrdersScheduler(Integer merchantId) {
@@ -75,28 +79,42 @@ public class OrderService {
 
         Runnable task = () -> {
             try {
-                //TODO: add stop mechanism
+                Merchant updatedMerchant = merchantService.getMerchantById(merchantId)
+                        .orElseThrow(() -> new RuntimeException("Merchant not found"));
 
-                LocalDate lastOrder = orderRepository.findLastOrderCreatedAtAndMerchantId(merchantId).toLocalDate();
+                if (!updatedMerchant.getIsActive()) {
+                    System.out.println("Merchant is inactive. Shutting down scheduler.");
+                    scheduledExecutorService.shutdown();
+                    return;
+                }
 
-                String now = LocalDate.now().toString();
+                LocalDate lastOrderDate = orderRepository.findLastOrderCreatedAtAndMerchantId(merchantId)
+                        .toLocalDate();
+                LocalDate now = LocalDate.now();
 
-                syncOrders(String.valueOf(lastOrder), now, merchantId);
-                System.out.println("SyncOrders task completed successfully");
+                syncOrders(String.valueOf(lastOrderDate), String.valueOf(now), merchantId);
+                System.out.println("SyncOrders task completed successfully for merchantId: " + merchantId);
+            } catch (NoSuchElementException e) {
+                System.err.println("Merchant with ID " + merchantId + " not found. Terminating scheduler.");
+                scheduledExecutorService.shutdown();
             } catch (Exception e) {
-                System.err.println("Error executing syncOrders: " + e.getMessage());
+                System.err.println("Error occurred during syncOrders task: " + e.getMessage());
+                e.printStackTrace();
             }
         };
 
         scheduledExecutorService.scheduleWithFixedDelay(task, 0, 24, TimeUnit.HOURS);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutting down scheduler gracefully...");
             scheduledExecutorService.shutdown();
             try {
                 if (!scheduledExecutorService.awaitTermination(5, TimeUnit.MINUTES)) {
+                    System.err.println("Forcing shutdown of scheduler...");
                     scheduledExecutorService.shutdownNow();
                 }
             } catch (InterruptedException e) {
+                System.err.println("Shutdown interrupted. Forcing shutdown...");
                 scheduledExecutorService.shutdownNow();
                 Thread.currentThread().interrupt();
             }
