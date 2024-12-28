@@ -52,4 +52,8 @@ public class Merchant {
 
     @OneToMany(mappedBy = "merchant")
     private List<Order> orders;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    private User user;
 }

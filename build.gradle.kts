@@ -27,10 +27,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.modelmapper:modelmapper:3.2.1")
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
-    // https://mvnrepository.com/artifact/org.springframework.kafka/spring-kafka
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.kafka:spring-kafka:3.3.1")
     implementation ("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("com.auth0:java-jwt:4.4.0")
 
     implementation("org.apache.kafka:kafka_2.13:3.9.0")
     implementation ("org.json:json:20210307")

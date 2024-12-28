@@ -120,7 +120,7 @@ public class ProductService {
         }
     }
 
-    public String getNewSession(String username,String password){
+    public String getNewSession(String username,String password) {
         String url = "http://localhost:8081/getSession";
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
