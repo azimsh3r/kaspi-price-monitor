@@ -7,8 +7,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserSessionService {
 
+    private final RedisTemplate<String, String> redisTemplate;
+
     @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+    public UserSessionService(RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     public String getUserSessionId(String key) {
         String sessionId = redisTemplate.opsForValue().get(key);

@@ -1,5 +1,10 @@
 package com.metaorta.kaspi.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
 public class ProductDTO {
     private String sku;
     private String model;
@@ -30,7 +35,7 @@ public class ProductDTO {
                 '}';
     }
 
-    public double getPrice() {
+    public int getPrice() {
         return price;
     }
 

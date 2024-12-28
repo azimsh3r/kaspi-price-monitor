@@ -3,6 +3,9 @@ package com.metaorta.kaspi.service;
 
 import com.metaorta.kaspi.dto.ProductDTO;
 import com.metaorta.kaspi.exception.SessionExpiredException;
+import com.metaorta.kaspi.model.Merchant;
+import com.metaorta.kaspi.model.Product;
+import com.metaorta.kaspi.repository.ProductRepository;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -16,6 +19,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class ProductService {
@@ -23,9 +30,64 @@ public class ProductService {
 
     private final UserSessionService userSessionService;
 
+    private final MerchantService merchantService;
 
-    public ProductService(UserSessionService userSessionService) {
+    private final ProductRepository productRepository;
+
+    public void synchronizeProducts(int merchantId) {
+        Merchant merchant = merchantService.getMerchantById(merchantId).orElseThrow(RuntimeException::new);
+
+        List<ProductDTO> productDTOList = getFetchAllProducts(
+                merchant.getMerchantId(),
+                userSessionService.getUserSessionId(merchant.getUsername())
+        );
+
+        List<Product> existingProducts = fetchProductsFromDB(merchantId);
+
+        Map<String, ProductDTO> productDTOMap = productDTOList.stream()
+                .collect(Collectors.toMap(
+                        ProductDTO::getSku,
+                        Function.identity(),
+                        (existing, replacement) -> existing
+                ));
+
+        List<Product> productsToDelete = existingProducts.stream()
+                .filter(product -> !productDTOMap.containsKey(product.getSku()))
+                .collect(Collectors.toList());
+
+        List<Product> productsToUpdate = new ArrayList<>();
+        List<Product> productsToCreate = new ArrayList<>();
+
+        for (ProductDTO productDTO : productDTOList) {
+            Optional<Product> existingProduct = existingProducts.stream()
+                    .filter(product -> product.getSku().equals(productDTO.getSku()))
+                    .findFirst();
+
+            if (existingProduct.isPresent()) {
+                Product product = existingProduct.get();
+                product.setCurrentPrice(productDTO.getPrice());
+                productsToUpdate.add(product);
+            } else {
+                Product newProduct = getNewProductFromDTO(productDTO, merchant);
+                productsToCreate.add(newProduct);
+            }
+        }
+
+        if (!productsToDelete.isEmpty()) {
+            productRepository.deleteAll(productsToDelete);
+        }
+        if (!productsToUpdate.isEmpty()) {
+            productRepository.saveAll(productsToUpdate);
+        }
+        if (!productsToCreate.isEmpty()) {
+            productRepository.saveAll(productsToCreate);
+        }
+    }
+
+    public ProductService(UserSessionService userSessionService, MerchantService merchantService, ProductRepository productRepository) {
         this.userSessionService = userSessionService;
+        this.merchantService = merchantService;
+        this.productRepository = productRepository;
         this.httpClient = HttpClients.createDefault();
     }
 
@@ -57,7 +119,6 @@ public class ProductService {
             throw new RuntimeException("Error while fetching offer count", e);
         }
     }
-
 
     public String getNewSession(String username,String password){
         String url = "http://localhost:8081/getSession";
@@ -136,5 +197,21 @@ public class ProductService {
         }
 
         return products;
+    }
+
+    private List<Product> fetchProductsFromDB(Integer merchantId) {
+        return productRepository.findAllByMerchantId(merchantId);
+    }
+
+    private Product getNewProductFromDTO(ProductDTO productDTO, Merchant merchant) {
+        Product newProduct = new Product();
+
+        newProduct.setName(productDTO.getModel());
+        newProduct.setCurrentPrice(productDTO.getPrice());
+        newProduct.setSku(productDTO.getSku());
+        newProduct.setMerchant(merchant);
+        //TODO: Take care of min and max price
+        newProduct.setActive(true);
+        return newProduct;
     }
 }
