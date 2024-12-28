@@ -185,7 +185,7 @@ public class ProductService {
 
                     String model = productJson.optString("model", "");
                     String sku = productJson.optString("sku", "");
-                    double price = productJson.optDouble("price", 0);
+                    Integer price = productJson.optInt("price", 0);
 
                     ProductDTO product = new ProductDTO(sku, model, price);
                     products.add(product);
