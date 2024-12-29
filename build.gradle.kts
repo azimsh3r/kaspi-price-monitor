@@ -31,6 +31,7 @@ dependencies {
     implementation("org.springframework.kafka:spring-kafka:3.3.1")
     implementation ("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("com.auth0:java-jwt:4.4.0")
+    implementation("org.hibernate.validator:hibernate-validator:8.0.2.Final")
 
     implementation("org.apache.kafka:kafka_2.13:3.9.0")
     implementation ("org.json:json:20210307")

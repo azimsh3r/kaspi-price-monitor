@@ -8,13 +8,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class UserSessionController {
+    private UserSessionService userSessionService;
 
     @Autowired
-    private UserSessionService userSessionService;
+    public UserSessionController(UserSessionService userSessionService) {
+        this.userSessionService = userSessionService;
+    }
 
     @GetMapping("/get-session")
     public String getSession(@RequestParam String key) {
         return userSessionService.getUserSessionId(key);
     }
 }
-
