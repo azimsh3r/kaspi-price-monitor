@@ -30,4 +30,8 @@ public class ProxyService {
         List<Proxy> proxyList = proxyRepository.findByMerchantId(merchantId);
         return new LinkedBlockingQueue<>(proxyList);
     }
+
+    public List<Proxy> getAllProxiesByMerchantId(Integer id) {
+        return proxyRepository.findByMerchantId(id);
+    }
 }
