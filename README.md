@@ -1,44 +1,45 @@
-# 💰 Kaspi Price Monitor & Auto-Updater
+# Kaspi Price Monitor & Auto-Updater
 
-⚠️ This project is no longer maintained, and future updates or support are not planned.
+**⚠️ This project is deprecated. It is no longer maintained, and future updates or support are not planned.**
 
-A high-performance, production-grade backend system built for the **KaspiKz Marketplace**. This commercial project helps manage product prices based on real-time competitor data, optimizing pricing strategies and tracking order statistics.
+A high-performance, production-grade backend system built for the **KaspiKz Marketplace**. This commercial project helps manage product prices based on real-time competitor data, optimizing pricing strategies and tracking order statistics. Built with Spring Boot, it features robust security with JWT and role-based access control.
+
 ---
 
-## 🚀 Features
+## Features
 
-- 🔄 **Automated Price Updates**  
+- **Automated Price Updates**  
   Adjusts merchant prices based on real-time competitor analysis using smart strategies.
   
-- 📦 **Product Sync from Remote API**  
+- **Product Sync from Remote API**  
   Automatically fetches and syncs product listings from the Kaspi merchant account.
 
-- 🌐 **Smart Proxy Management**  
+- **Smart Proxy Management**  
   Uses a rotating pool of proxies with cooldown enforcement to bypass IP restrictions and scraping limits.
 
-- ⏱️ **Concurrent & Safe**  
+- **Concurrent & Safe**  
   Manages thousands of price updates using a thread-safe executor and semaphores for maximum performance.
 
-- 🧠 **Dynamic Pricing Engine**  
+- **Dynamic Pricing Engine**  
   Applies undercutting or competitive price raises with merchant-defined behavior and cooldown enforcement.
 
-- 🔐 **Full Security Stack**  
+- **Full Security Stack**  
   - JWT-based authentication  
   - Role-based authorization (`ADMIN`, `MERCHANT`, `USER`)  
   - Secure access to endpoints and services
   
-- 📊 **Order Statistics**  
+- **Order Statistics**  
   Collects and exposes detailed statistics per merchant: total orders, revenue, product-level breakdowns.
 
-- 💡 **Price Raise Throttling**  
+- **Price Raise Throttling**  
   Prevents over-frequent price increases using a 5-hour cooldown system.
 
-- 🔌 **RESTful API**  
+- **RESTful API**  
   Simple, JSON-based API for price updates, product queries, order stats, and secure login.
 
 ---
 
-## 🧠 Tech Stack
+## Tech Stack
 
 | Layer             | Tech                          |
 |------------------|-------------------------------|
@@ -53,7 +54,7 @@ A high-performance, production-grade backend system built for the **KaspiKz Mark
 
 ---
 
-## 📂 Architecture Overview
+## Architecture Overview
 
 ```plaintext
               +-----------------------------+
@@ -86,7 +87,7 @@ A high-performance, production-grade backend system built for the **KaspiKz Mark
 
 ---
 
-## 🔐 Authentication & Roles
+## Authentication & Roles
 
 | Role     | Access                                                                 |
 |----------|------------------------------------------------------------------------|
@@ -102,7 +103,7 @@ Authorization: Bearer <your_token>
 
 ---
 
-## 📊 Order Statistics
+## Order Statistics
 
 **GET** `/api/orders/stats?merchantId=123`
 
@@ -121,7 +122,7 @@ Returns:
 
 ---
 
-## 📦 API Summary
+## API Summary
 
 | Method | Endpoint                   | Description                          |
 |--------|----------------------------|--------------------------------------|
@@ -133,7 +134,7 @@ Returns:
 
 ---
 
-## ⚙️ Setup & Run
+## Setup & Run
 
 ```bash
 # Clone the repo
@@ -149,7 +150,7 @@ cd kaspi-price-monitor
 
 ---
 
-## 📈 Optimizations & Engineering Decisions
+## Optimizations & Engineering Decisions
 
 - Used `ScheduledExecutorService` + `Semaphore` for concurrency control.
 - Redis handles session storage for proxies and merchants.
@@ -157,8 +158,8 @@ cd kaspi-price-monitor
 
 ---
 
-## 👨‍💻 Author
+## Author
 
-**Azim Akhmadjonov**  
+**Azimjon Akhmadjonov**  
 Software Engineer | Distributed Systems Builder  
 Reach out on [GitHub](https://github.com/azimsh3r) or [LinkedIn](https://www.linkedin.com/in/azimjon-akhmadjonov/)
