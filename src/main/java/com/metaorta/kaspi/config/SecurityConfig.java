@@ -1,6 +1,6 @@
 package com.metaorta.kaspi.config;
 
-import com.metaorta.kaspi.service.UserService;
+import com.metaorta.kaspi.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,8 +1,7 @@
-package com.metaorta.kaspi.service;
+package com.metaorta.kaspi.service.user;
 
 import com.metaorta.kaspi.model.User;
 import com.metaorta.kaspi.repository.UserRepository;
-import com.metaorta.kaspi.security.AuthDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

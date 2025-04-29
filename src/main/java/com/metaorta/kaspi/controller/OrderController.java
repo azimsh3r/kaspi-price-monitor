@@ -3,7 +3,7 @@ package com.metaorta.kaspi.controller;
 import com.metaorta.kaspi.dto.OrderAmountStatsDTO;
 import com.metaorta.kaspi.dto.OrderRevenueStatsDTO;
 import com.metaorta.kaspi.model.Order;
-import com.metaorta.kaspi.service.OrderService;
+import com.metaorta.kaspi.service.order.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -11,11 +11,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
+
     private final OrderService orderService;
 
     @Autowired
@@ -23,29 +25,31 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    @GetMapping
-    public Page<Order> getAllByDate(@RequestParam String startDate, @RequestParam String endDate, @RequestParam Integer merchantId, @RequestParam Integer page, @RequestParam Integer size) {
-        return orderService.getOrdersFromDB(startDate, endDate, merchantId, page, size);
-    }
-
     @GetMapping("/amount")
-    public OrderAmountStatsDTO getOrderAmountStats(@RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate startDate,
-                                                   @RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate endDate,
-                                                   @RequestParam Integer merchantId) {
-        return orderService.getOrderAmountStats(startDate, endDate, merchantId);
+    public BigDecimal getOrderAmountStats(@RequestParam String startDate,
+                                          @RequestParam String endDate,
+                                          @RequestParam Long merchantId) {
+        ZonedDateTime start = ZonedDateTime.parse(startDate);
+        ZonedDateTime end = ZonedDateTime.parse(endDate);
+        return orderService.getOrderAmountStats(start, end, merchantId);
     }
-
 
     @GetMapping("/revenue")
-    public OrderRevenueStatsDTO getOrderRevenueStats(@RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate startDate,
-                                                     @RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate endDate,
-                                                     @RequestParam Integer merchantId) {
-        return orderService.getOrderRevenueStats(startDate, endDate, merchantId);
+    public BigDecimal getOrderRevenueStats(@RequestParam String startDate,
+                                           @RequestParam String endDate,
+                                           @RequestParam Long merchantId) {
+        ZonedDateTime start = ZonedDateTime.parse(startDate);
+        ZonedDateTime end = ZonedDateTime.parse(endDate);
+        return orderService.getOrderRevenueStats(start, end, merchantId);
     }
 
     @PostMapping("/sync")
-    public ResponseEntity<String> syncOrders(@RequestParam String startDate, @RequestParam String endDate, @RequestParam Integer merchantId) {
-        orderService.syncOrders(startDate, endDate, merchantId);
+    public ResponseEntity<String> syncOrders(@RequestParam String startDate,
+                                             @RequestParam String endDate,
+                                             @RequestParam Integer merchantId) {
+        ZonedDateTime start = ZonedDateTime.parse(startDate);
+        ZonedDateTime end = ZonedDateTime.parse(endDate);
+        orderService.syncOrders(start, end, merchantId);
         return new ResponseEntity<>("Orders are synchronized successfully", HttpStatus.OK);
     }
 }

@@ -2,7 +2,7 @@ package com.metaorta.kaspi.controller;
 
 import com.metaorta.kaspi.dto.LoginRequestDTO;
 import com.metaorta.kaspi.model.User;
-import com.metaorta.kaspi.service.UserService;
+import com.metaorta.kaspi.service.user.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

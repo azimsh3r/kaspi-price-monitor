@@ -36,7 +36,7 @@ public class KaspiApplication {
     public CloseableHttpClient httpClient() {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(Timeout.ofDays(5000))
-                .setResponseTimeout(Timeout.ofDays(5000))// Connection timeout (in ms)
+                .setResponseTimeout(Timeout.ofDays(5000))
                 .setConnectionRequestTimeout(Timeout.ofDays(5000))
                 .setConnectionKeepAlive(TimeValue.MAX_VALUE)
                 .setExpectContinueEnabled(true)

@@ -9,7 +9,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Repository
@@ -37,4 +39,20 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     @Query("SELECT o.createdAt FROM Order o WHERE o.merchant.id = :merchant_id ORDER BY o.createdAt DESC")
     LocalDateTime findLastOrderCreatedAtAndMerchantId(@Param("merchant_id") Integer merchantId);
+
+
+    @Query("SELECT COALESCE(SUM(o.totalPrice), 0) FROM Order o " +
+            "WHERE o.createdAt BETWEEN :startDate AND :endDate " +
+            "AND o.merchant.id = :merchantId")
+    BigDecimal sumOrderTotalPriceBetweenDates(@Param("startDate") ZonedDateTime startDate,
+                                              @Param("endDate") ZonedDateTime endDate,
+                                              @Param("merchantId") Long merchantId);
+
+    @Query("SELECT COALESCE(SUM(o.totalPrice), 0) FROM Order o " +
+            "WHERE o.createdAt BETWEEN :startDate AND :endDate " +
+            "AND o.merchant.id = :merchantId")
+    BigDecimal sumOrderRevenueBetweenDates(@Param("startDate") ZonedDateTime startDate,
+                                           @Param("endDate") ZonedDateTime endDate,
+                                           @Param("merchantId") Long merchantId);
+
 }
