@@ -1,4 +1,4 @@
-package com.metaorta.kaspi.service.user;
+package com.metaorta.kaspi.service;
 
 import com.metaorta.kaspi.model.User;
 import com.metaorta.kaspi.repository.UserRepository;

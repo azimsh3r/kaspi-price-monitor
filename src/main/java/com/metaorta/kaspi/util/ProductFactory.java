@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ProductFactory {
-    public Product create(ProductDTO dto, Merchant merchant) {
+    public static Product create(ProductDTO dto, Merchant merchant) {
         Product product = new Product();
         product.setSku(dto.getSku());
         product.setName(dto.getModel());

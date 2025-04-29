@@ -1,6 +1,6 @@
 package com.metaorta.kaspi.controller;
 
-import com.metaorta.kaspi.service.merchant.MerchantService;
+import com.metaorta.kaspi.service.MerchantService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

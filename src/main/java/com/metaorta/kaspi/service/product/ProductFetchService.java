@@ -2,7 +2,7 @@ package com.metaorta.kaspi.service.product;
 
 import com.metaorta.kaspi.dto.ProductDTO;
 import com.metaorta.kaspi.exception.SessionExpiredException;
-import com.metaorta.kaspi.service.session.UserSessionService;
+import com.metaorta.kaspi.service.UserSessionService;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;

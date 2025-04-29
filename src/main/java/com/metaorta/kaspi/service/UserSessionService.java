@@ -1,4 +1,4 @@
-package com.metaorta.kaspi.service.session;
+package com.metaorta.kaspi.service;
 
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -29,6 +29,7 @@ public class UserSessionService {
     }
 
     public String getNewSession(String username,String password) {
+        //TODO: do not hardcode
         String url = "http://localhost:8081/getSession";
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {

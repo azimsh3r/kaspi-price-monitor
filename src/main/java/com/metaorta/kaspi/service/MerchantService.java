@@ -1,4 +1,4 @@
-package com.metaorta.kaspi.service.merchant;
+package com.metaorta.kaspi.service;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -53,6 +53,4 @@ public class MerchantService {
             throw new RuntimeException(e);
         }
     }
-
-
 }
