@@ -56,35 +56,7 @@ A high-performance, production-grade backend system built for the **KaspiKz Mark
 
 ## Architecture Overview
 
-```plaintext
-              +-----------------------------+
-              |        Frontend App         |
-              | (or Postman/REST Client)    |
-              +-----------------------------+
-                           |
-                           v
-          +--------------------------------------+
-          |       AuthController (JWT Login)     |
-          |       ProductController              |
-          |       OrderStatsController           |
-          +--------------------------------------+
-               |                |              |
-               v                v              v
-  +----------------+  +------------------+  +---------------------+
-  | PriceUpdateSvc |  | ProductFetchSvc  |  | OrderStatisticsSvc  |
-  | - Schedulers   |  | - Remote API     |  | - Aggregation Logic |
-  | - Semaphores   |  | - Redis Session  |  +---------------------+
-  +----------------+
-         |
-         v
-+--------------------+    +-------------------+
-| ProxyService       |    | PriceCalcService  |
-| - Cooldown manager |    | - Custom logic    |
-+--------------------+    +-------------------+
-
-🔐 All endpoints secured with JWT and roles
-```
-
+![Image](https://github.com/user-attachments/assets/1d67222f-a6ca-4c8e-8167-834df8d80910)
 ---
 
 ## Authentication & Roles
